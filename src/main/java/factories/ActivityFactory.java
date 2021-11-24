@@ -7,6 +7,10 @@ public class ActivityFactory {
     private ActivityFactory() {
     }
 
+    public static ActivityAbstract constructActivity(String name, int duration, int optimistic, int pessimistic) {
+        return new Activity( duration, optimistic, pessimistic, name );
+    }
+
     public static ActivityAbstract constructActivity(String name, int duration) {
         return new Activity( name, duration );
     }

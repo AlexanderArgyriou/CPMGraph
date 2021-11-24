@@ -16,14 +16,14 @@ public class AonNetworkProvider {
         AonNetworkIf aon = AonFactory.newAonNetwork();
 
         ActivityAbstract start = ActivityFactory.constructActivity( "Start" );
-        ActivityAbstract a = ActivityFactory.constructActivity( "A", 2 );
-        ActivityAbstract b = ActivityFactory.constructActivity( "B", 3 );
-        ActivityAbstract c = ActivityFactory.constructActivity( "C", 2 );
-        ActivityAbstract d = ActivityFactory.constructActivity( "D", 4 );
-        ActivityAbstract e = ActivityFactory.constructActivity( "E", 4 );
-        ActivityAbstract f = ActivityFactory.constructActivity( "F", 3 );
-        ActivityAbstract g = ActivityFactory.constructActivity( "G", 5 );
-        ActivityAbstract h = ActivityFactory.constructActivity( "H", 2 );
+        ActivityAbstract a = ActivityFactory.constructActivity( "A", 2, 1, 3 );
+        ActivityAbstract b = ActivityFactory.constructActivity( "B", 3, 2, 4 );
+        ActivityAbstract c = ActivityFactory.constructActivity( "C", 2, 1, 3 );
+        ActivityAbstract d = ActivityFactory.constructActivity( "D", 4, 2, 6 );
+        ActivityAbstract e = ActivityFactory.constructActivity( "E", 4, 1, 7 );
+        ActivityAbstract f = ActivityFactory.constructActivity( "F", 2, 1, 9 );
+        ActivityAbstract g = ActivityFactory.constructActivity( "G", 4, 3, 11 );
+        ActivityAbstract h = ActivityFactory.constructActivity( "H", 2, 1, 3 );
 
         aon.addActivity( start, Collections.emptyList() );
         aon.addActivity( a, PredecessorFactory.constructPredecessors( start ) );

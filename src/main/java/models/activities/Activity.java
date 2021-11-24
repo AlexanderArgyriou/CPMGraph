@@ -5,6 +5,12 @@ import java.util.Objects;
 public class Activity extends ActivityAbstract {
     private String name = "";
 
+    public Activity(int duration, int optimisticCompletionPrediction,
+                    int pessimisticCompletionPrediction, String name) {
+        super( duration, optimisticCompletionPrediction, pessimisticCompletionPrediction );
+        this.name = name;
+    }
+
     public Activity(String name, int duration) {
         super( duration );
         this.name = name;

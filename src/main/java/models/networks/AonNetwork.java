@@ -3,6 +3,7 @@ package models.networks;
 import constants.Constants;
 import models.activities.Activity;
 import models.activities.ActivityAbstract;
+import org.apache.commons.math3.distribution.NormalDistribution;
 import org.jgrapht.Graph;
 import org.jgrapht.GraphPath;
 import org.jgrapht.Graphs;
@@ -11,6 +12,8 @@ import org.jgrapht.graph.DefaultEdge;
 import org.jgrapht.graph.SimpleDirectedGraph;
 import org.jgrapht.traverse.BreadthFirstIterator;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -20,6 +23,9 @@ import java.util.stream.Collectors;
 public class AonNetwork implements AonNetworkIf {
     private Graph<ActivityAbstract, DefaultEdge> simpleDirectedGraph = new SimpleDirectedGraph<>( DefaultEdge.class );
     private GraphPath<ActivityAbstract, DefaultEdge> criticalPath;
+    private double averageProjectDuration = 0.0d;
+    private double projectFluctuation = 0.0d;
+    private double projectStandardDeviation = 0.0d;
 
     public AonNetwork() {
     }
@@ -69,20 +75,23 @@ public class AonNetwork implements AonNetworkIf {
     public void traverse() {
         List<ActivityAbstract> vertexes = new ArrayList<>( simpleDirectedGraph.vertexSet() );
         for ( ActivityAbstract a : vertexes ) {
-            System.out.println( Constants.CURR + a );
+            System.out.println( Constants.CURR.get() + a );
             int count = 1;
             for ( ActivityAbstract ac : Graphs.successorListOf( simpleDirectedGraph, a ) ) {
                 System.out.println( count++ + " " + ac );
             }
             System.out.println();
-            System.out.println( Constants.SEPERRATOR );
+            System.out.println( Constants.SEPARATOR );
         }
         printCP();
+        System.out.println( Constants.AVG_PRJ_DUR.get() + averageProjectDuration );
+        System.out.println( Constants.PRJ_FL.get() + projectFluctuation );
+        System.out.println( Constants.PRJ_STD_EV.get() + projectStandardDeviation );
     }
 
     private void printCP() {
-        System.out.println( Constants.CP + criticalPath.getVertexList().stream()
-                .map( v -> (( Activity )v).getName() )
+        System.out.println( Constants.CP.get() + criticalPath.getVertexList().stream()
+                .map( v -> ( ( Activity ) v ).getName() )
                 .collect( Collectors.toList() ) );
     }
 
@@ -92,6 +101,10 @@ public class AonNetwork implements AonNetworkIf {
         List<ActivityAbstract> vertexes = new ArrayList<>();
         while ( iterator.hasNext() ) {
             ActivityAbstract a = iterator.next();
+            if ( !isStart( a ) ) {
+                calcExpectedTime( a );
+                calcFluctuation( a );
+            }
             vertexes.add( a );
             calcEarlierStart( a );
             calcEarlierCompletion( a );
@@ -103,18 +116,51 @@ public class AonNetwork implements AonNetworkIf {
         }
         calcSlack();
         calcCriticalPath();
+        calcAverageProjectDuration();
+        calcProjectFluctuation();
+        calcProjectStandardDeviation();
+    }
+
+    private void calcProjectStandardDeviation() {
+        projectStandardDeviation = BigDecimal.valueOf( Math.sqrt( projectFluctuation ) )
+                .setScale( 2, RoundingMode.HALF_UP )
+                .doubleValue();
+    }
+
+    private void calcProjectFluctuation() {
+        for ( ActivityAbstract a : criticalPath.getVertexList() ) {
+            projectFluctuation += a.getFluctuation();
+        }
+    }
+
+    private void calcAverageProjectDuration() {
+        for ( ActivityAbstract a : criticalPath.getVertexList() ) {
+            averageProjectDuration += a.getExpectedTime();
+        }
+    }
+
+    private boolean isStart(ActivityAbstract a) {
+        return a instanceof Activity && "Start".equals( ( ( Activity ) a ).getName() );
+    }
+
+    private void calcFluctuation(ActivityAbstract a) {
+        a.setFluctuation( ( Math.pow( ( ( double ) ( a.getOptimisticCompletionPrediction() - a.getPessimisticCompletionPrediction() ) / 6 ), 2 ) ) );
+    }
+
+    private void calcExpectedTime(ActivityAbstract a) {
+        a.setExpectedTime( ( double ) ( a.getPessimisticCompletionPrediction() + 4 * a.getMostPossibleCompletion() + a.getOptimisticCompletionPrediction() ) / 6 );
     }
 
     private void calcCriticalPath() {
         Iterator<ActivityAbstract> iterator = new BreadthFirstIterator<>( simpleDirectedGraph );
-        AllDirectedPaths<ActivityAbstract, DefaultEdge> paths = new AllDirectedPaths<>(simpleDirectedGraph);
+        AllDirectedPaths<ActivityAbstract, DefaultEdge> paths = new AllDirectedPaths<>( simpleDirectedGraph );
         List<ActivityAbstract> vertexes = new ArrayList<>();
         while ( iterator.hasNext() ) {
             vertexes.add( iterator.next() );
         }
         GraphPath<ActivityAbstract, DefaultEdge> longestPath = paths.getAllPaths( vertexes.get( 0 ), vertexes.get( vertexes.size() - 1 ), true, null )
                 .stream()
-                .sorted((GraphPath<ActivityAbstract, DefaultEdge> path1, GraphPath<ActivityAbstract, DefaultEdge> path2)-> Integer.valueOf( path2.getLength() ).compareTo(path1.getLength()))
+                .sorted( (GraphPath<ActivityAbstract, DefaultEdge> path1, GraphPath<ActivityAbstract, DefaultEdge> path2) -> Integer.valueOf( path2.getLength() ).compareTo( path1.getLength() ) )
                 .findFirst()
                 .get();
         setCriticalPath( longestPath );
@@ -158,11 +204,47 @@ public class AonNetwork implements AonNetworkIf {
     }
 
     @Override
+    public void printExpectedProjectDuration(double probabilityOfCompletion) {
+        System.out.println( Constants.PROJ_DUR.get() + probabilityOfCompletion * 100 + "% -> " + findExpectedProjectDuration( probabilityOfCompletion ) ); // x = z * σ + μ
+    }
+
+    @Override
+    public void printProbabilityOfProjectCompletionBetween(double start, double end) {
+        System.out.println( Constants.PROB_START_END.get() + start + " - " + end + " -> " + findProbabilityOfProjectCompletionBetween( start, end ) * 100 + "%" );
+    }
+
+    public double findProbabilityOfProjectCompletionBetween(double start, double end) {
+        return BigDecimal.valueOf( findProbabilityOfProjectCompletion( end ) - findProbabilityOfProjectCompletion( start ) )
+                .setScale( 2, RoundingMode.HALF_UP )
+                .doubleValue();
+    }
+
+    public double findExpectedProjectDuration(double probabilityOfCompletion) {
+        return BigDecimal.valueOf( new NormalDistribution().inverseCumulativeProbability( probabilityOfCompletion ) * projectStandardDeviation + averageProjectDuration )
+                .setScale( 2, RoundingMode.HALF_UP )
+                .doubleValue();
+    }
+
+    @Override
+    public void printProbabilityOfProjectCompletion(double givenTime) {
+        System.out.println( Constants.PROBAB.get() + givenTime + " -> " + findProbabilityOfProjectCompletion( givenTime ) * 100 + "%" ); // ( given time - expected time / standard deviation ) then from normal dist array we find the prob.
+    }
+
+    public double findProbabilityOfProjectCompletion(double givenTime) {
+        return BigDecimal.valueOf( new NormalDistribution().cumulativeProbability( ( givenTime - averageProjectDuration ) / projectStandardDeviation ) )
+                .setScale( 4, RoundingMode.HALF_UP )
+                .doubleValue();
+    }
+
+    @Override
     public void printVertexesBFS() {
         Iterator<ActivityAbstract> iterator = new BreadthFirstIterator<>( simpleDirectedGraph );
         while ( iterator.hasNext() ) {
             System.out.println( iterator.next() );
         }
         printCP();
+        System.out.println( Constants.AVG_PRJ_DUR.get() + averageProjectDuration );
+        System.out.println( Constants.PRJ_FL.get() + projectFluctuation );
+        System.out.println( Constants.PRJ_STD_EV.get() + projectStandardDeviation );
     }
 }

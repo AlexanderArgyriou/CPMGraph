@@ -16,4 +16,10 @@ public interface AonNetworkIf {
     Graph<ActivityAbstract, DefaultEdge> toGraph();
 
     void printVertexesBFS();
+
+    void printProbabilityOfProjectCompletion(double givenTime);
+
+    void printExpectedProjectDuration(double probabilityOfCompletion);
+
+    void printProbabilityOfProjectCompletionBetween(double start, double end);
 }
